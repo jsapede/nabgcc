@@ -13,6 +13,7 @@ C_FILES  = src/bc.c src/main.c
 C_FILES += $(wildcard src/**/*.c)
 C_FILES += $(wildcard sys/src/*.c)
 AS_FILES = $(wildcard sys/asm/*.s)
+C_FILES += src/syscalls.c
 
 # Compiler options
 CFLAGS =

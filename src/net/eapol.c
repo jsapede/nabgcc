@@ -22,6 +22,7 @@
 #include "net/eapol.h"
 #include "net/hash.h"
 #include "net/rc4.h"
+#include "net/ieee80211.h"
 
 /**
  * @brief Fill a buffer with random data
@@ -375,7 +376,13 @@ static void eapol_input_msg1(uint8_t *frame, uint32_t length)
 	DBG_WIFI("Response sent"EOL);
 
 	/* Install pairwise encryption and MIC keys */
-	rt2501_set_key(0, &ptk[32], &ptk[32+16+8], &ptk[32+16], RT2501_CIPHER_TKIP);
+	if(ieee80211_encryption == IEEE80211_CRYPT_WPA2) {
+		/* CCMP: 16-byte AES key, no MIC keys */
+		rt2501_set_key(0, &ptk[32], NULL, NULL, RT2501_CIPHER_AES);
+	} else {
+		/* TKIP: 16-byte key + 8-byte TX-MIC + 8-byte RX-MIC */
+		rt2501_set_key(0, &ptk[32], &ptk[32+16+8], &ptk[32+16], RT2501_CIPHER_TKIP);
+	}
 	memset(ptk_tsc, 0, EAPOL_TSC_LENGTH);
 
 	eapol_state = EAPOL_S_MSG3;

@@ -1084,6 +1084,9 @@ int32_t rt2501_set_key(uint8_t index, uint8_t *key, uint8_t *txmic, uint8_t *rxm
   case RT2501_CIPHER_TKIP:
     key_length = EAPOL_TKIP_EK_LENGTH;
     break;
+  case RT2501_CIPHER_AES:
+    key_length = 16; /* AES-128 key = 16 bytes */
+    break;
   }
 
   /* Mark the key invalid */

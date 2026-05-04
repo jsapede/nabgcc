@@ -26,6 +26,8 @@
 
 #include "net/ieee80211.h"
 #include "net/eapol.h"
+#include "net/aes.h"
+#include "net/hash.h"
 
 
 const uint8_t ieee80211_broadcast_address[IEEE80211_ADDR_LEN] =
@@ -204,6 +206,8 @@ static uint8_t ieee80211_crypt_to_rt2501cipher(uint8_t crypt)
 			return RT2501_CIPHER_WEP128;
 		case IEEE80211_CRYPT_WPA:
 			return RT2501_CIPHER_TKIP;
+		case IEEE80211_CRYPT_WPA2:
+			return RT2501_CIPHER_AES;
 		default:
 			return RT2501_CIPHER_NONE;
 	}
@@ -664,6 +668,36 @@ static void ieee80211_associate(void)
 		/* Auth key management suites: PSK */
 		for(i=0;i<IEEE80211_OUI_LEN;i++)
 			*(write_ptr++) = ieee80211_psk_oui[i];
+		/* RSN IE for WPA2 */
+		*(write_ptr++) = IEEE80211_ELEMID_RSN;
+		*(write_ptr++) = 20;
+		/* Version */
+		*(write_ptr++) = 0x01;
+		*(write_ptr++) = 0x00;
+		/* Multicast cipher suite: CCMP */
+		*(write_ptr++) = 0x00;
+		*(write_ptr++) = 0x0f;
+		*(write_ptr++) = 0xac;
+		*(write_ptr++) = 0x04;
+		/* 1 unicast cipher suite */
+		*(write_ptr++) = 0x01;
+		*(write_ptr++) = 0x00;
+		/* Unicast cipher suites: CCMP */
+		*(write_ptr++) = 0x00;
+		*(write_ptr++) = 0x0f;
+		*(write_ptr++) = 0xac;
+		*(write_ptr++) = 0x04;
+		/* 1 auth key management suite */
+		*(write_ptr++) = 0x01;
+		*(write_ptr++) = 0x00;
+		/* Auth key management suites: PSK */
+		*(write_ptr++) = 0x00;
+		*(write_ptr++) = 0x0f;
+		*(write_ptr++) = 0xac;
+		*(write_ptr++) = 0x02;
+		/* Capabilities: 0 */
+		*(write_ptr++) = 0x00;
+		*(write_ptr++) = 0x00;
 	}
 
 	frame_length = sizeof(struct ieee80211_frame)+(write_ptr - assoc->assoc);
@@ -1060,7 +1094,6 @@ static void ieee80211_input_mgt(uint8_t *frame, uint32_t length, int16_t rssi)
 								/* Minimal size of a WPA element */
 								if(frame_current[1] < 22) break;
 
-								/* Check RSN IE */
 								current = &frame_current[2];
 								if(memcmp(current, ieee80211_vendor_wpa_id, sizeof(ieee80211_vendor_wpa_id)) != 0) break;
 								current += sizeof(ieee80211_vendor_wpa_id);
@@ -1104,6 +1137,59 @@ static void ieee80211_input_mgt(uint8_t *frame, uint32_t length, int16_t rssi)
 								}
 
 								scan_result.encryption = IEEE80211_CRYPT_WPA;
+								break;
+							}
+							case IEEE80211_ELEMID_RSN: {
+								/* Check for WPA2 (RSN IE) */
+								uint8_t *current;
+								uint16_t count;
+								int32_t found;
+
+								/* Minimal size of RSN element */
+								if(frame_current[1] < 20) break;
+
+								current = &frame_current[2];
+								/* Skip version (2 bytes) */
+								current += 2;
+
+								/* Multicast cipher suite: check for CCMP (00:50:F2:04) */
+								if(memcmp(current, ieee80211_tkip_oui, 3) != 0 || current[3] != 0x04) {
+									scan_result.encryption = IEEE80211_CRYPT_WPA_UNSUPPORTED;
+									break;
+								}
+								current += IEEE80211_OUI_LEN;
+
+								/* Unicast cipher suites count */
+								count = (current[0] << 0)|(current[1] << 8);
+								current += 2;
+
+								/* Check for CCMP in unicast suites */
+								found = 0;
+								for(i=0;i<count;i++) {
+									if(memcmp(current, ieee80211_tkip_oui, 3) == 0 && current[3] == 0x04) found = 1;
+									current += IEEE80211_OUI_LEN;
+								}
+								if(!found) {
+									scan_result.encryption = IEEE80211_CRYPT_WPA_UNSUPPORTED;
+									break;
+								}
+
+								/* AKM suites */
+								count = (current[0] << 0)|(current[1] << 8);
+								current += 2;
+
+								/* Check for PSK AKM (00:50:F2:02) */
+								found = 0;
+								for(i=0;i<count;i++) {
+									if(memcmp(current, ieee80211_psk_oui, 3) == 0 && current[3] == 0x02) found = 1;
+									current += IEEE80211_OUI_LEN;
+								}
+								if(!found) {
+									scan_result.encryption = IEEE80211_CRYPT_WPA_UNSUPPORTED;
+									break;
+								}
+
+								scan_result.encryption = IEEE80211_CRYPT_WPA2;
 								break;
 							}
 							default:
@@ -1706,6 +1792,22 @@ void rt2501_auth(const uint8_t *ssid, const uint8_t *mac,
 			rt2501_set_key(0, NULL, NULL, NULL, RT2501_CIPHER_NONE);
 			eapol_init();
 			break;
+		case IEEE80211_CRYPT_WPA2:
+			ieee80211_authmode = IEEE80211_AUTH_OPEN;
+			{
+				uint32_t pass_len = strlen((const char *)key);
+				if(pass_len < 32) {
+					pbkdf2_sha256(key, pass_len,
+					              ieee80211_assoc_ssid,
+					              strlen((char *)ieee80211_assoc_ssid),
+					              4096, ieee80211_key);
+				} else {
+					memcpy(ieee80211_key, key, 32);
+				}
+			}
+			rt2501_set_key(0, NULL, NULL, NULL, RT2501_CIPHER_NONE);
+			eapol_init();
+			break;
 		default:
 			DBG_WIFI("Unknown encryption specified"EOL);
 			return;
@@ -1837,6 +1939,11 @@ int32_t rt2501_send(const uint8_t *frame, uint32_t length, const uint8_t *dest_m
 				encryption = IEEE80211_CRYPT_NONE;
 			else
 				encryption = IEEE80211_CRYPT_WPA;
+		} else if(ieee80211_encryption == IEEE80211_CRYPT_WPA2) {
+			if((eapol_state == EAPOL_S_MSG1) || (eapol_state == EAPOL_S_MSG3))
+				encryption = IEEE80211_CRYPT_NONE;
+			else
+				encryption = ieee80211_encryption;
 		} else encryption = ieee80211_encryption;
 	}
 
@@ -1858,6 +1965,9 @@ int32_t rt2501_send(const uint8_t *frame, uint32_t length, const uint8_t *dest_m
 			break;
 		case IEEE80211_CRYPT_WPA:
 			encryption_overhead = 20; /* (TKIP) IV[4] + EIV[4] + ICV[4] + MIC[8] */
+			break;
+		case IEEE80211_CRYPT_WPA2:
+			encryption_overhead = 16; /* CCMP header[8] + MIC[8] */
 			break;
 	}
 
@@ -1917,22 +2027,36 @@ int32_t rt2501_send(const uint8_t *frame, uint32_t length, const uint8_t *dest_m
 		iv.iv16.field.control.field.reserved = 0;
 		iv.iv16.field.control.field.ext_iv = 1;
 		iv.iv16.field.control.field.key_id = 0;
-//		iv.iv32 = *((uint32_t *)&ptk_tsc[2]);
                 iv.iv32 = ptk_tsc[2] | (ptk_tsc[3] << 8) | (ptk_tsc[4] << 16) | (ptk_tsc[5] << 24);
-
 
 		fr->txd.Iv = iv.iv16.word;
 		fr->txd.Eiv = iv.iv32;
 		fr->txd.IvOffset = sizeof(struct ieee80211_frame);
 
 		i = 0;
-		while(++ptk_tsc[i] == 0) {													\
+		while(++ptk_tsc[i] == 0) {
 			i++;
 			if(i == EAPOL_TSC_LENGTH) {
 				DBG_WIFI("TSC cycle !!!"EOL);
 				break;
 			}
+		}
+	}
+	if(encryption == IEEE80211_CRYPT_WPA2) {
+		uint32_t i;
+		/* Set CCMP PN (same TSC counter as TKIP) */
+		fr->txd.Iv = ptk_tsc[0] | (ptk_tsc[1] << 8) | (ptk_tsc[2] << 16);
+		fr->txd.Eiv = ptk_tsc[3] | (ptk_tsc[4] << 8) | (ptk_tsc[5] << 16)
+		              | (0 << 24);  /* key_id = 0 */
+		fr->txd.IvOffset = sizeof(struct ieee80211_frame);
 
+		i = 0;
+		while(++ptk_tsc[i] == 0) {
+			i++;
+			if(i == EAPOL_TSC_LENGTH) {
+				DBG_WIFI("TSC cycle !!!"EOL);
+				break;
+			}
 		}
 	}
 

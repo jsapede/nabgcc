@@ -17,6 +17,8 @@ extern const uint8_t eapol_llc[LLC_LENGTH];
 
 
 #define EAPOL_DTYPE_WPAKEY        0xFE
+#define EAPOL_DTYPE_WPA2KEY        0x02
+#define EAPOL_KEYDESC_WPA2         0x01
 
 struct eapol_key_info {
  uint8_t key_mic:1;

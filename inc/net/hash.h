@@ -14,5 +14,12 @@ void hmac_md5(const uint8_t *key, uint32_t key_len,
 void hmac_sha1( const uint8_t *key, uint32_t key_len,
                 const uint8_t *data, uint32_t data_len,
                 uint8_t *mac);
+void hmac_sha256(const uint8_t *key, uint32_t key_len,
+                 const uint8_t *data, uint32_t data_len,
+                 uint8_t *mac);
+void pbkdf2_sha256(const uint8_t *password, uint32_t password_len,
+                   const uint8_t *salt, uint32_t salt_len,
+                   uint32_t iterations,
+                   uint8_t *output);
 
 #endif

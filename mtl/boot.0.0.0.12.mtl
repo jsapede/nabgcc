@@ -47,6 +47,7 @@ var IEEE80211_CRYPT_WEP64=1;;
 var IEEE80211_CRYPT_WEP128=2;;
 var IEEE80211_CRYPT_WPA=3;;
 var IEEE80211_CRYPT_WPA_UNSUPPORTED=4;;
+var IEEE80211_CRYPT_WPA2=5;;
 
 var IEEE80211_AUTH_OPEN=0;;
 var IEEE80211_AUTH_SHARED=1;;
@@ -387,7 +388,7 @@ fun arpreq ip cb=
 	else
 	(
 		sendarp ip;
-		set larpreq=[ip time cb]::larpreq;	// ### attention à la taille de la liste
+		set larpreq=[ip time cb]::larpreq;	// ### attention ï¿½ la taille de la liste
 		0
 	);;
 
@@ -1061,7 +1062,7 @@ fun cbnetdns msg mac ipfrom=
 	(
 		Secholn "dns found";
 		set ldnsreq=listrem ldnsreq x;
-		if ip!=nil then set ldns=[x.domainD ip]::ldns;	// ### attention à la taille de la liste
+		if ip!=nil then set ldns=[x.domainD ip]::ldns;	// ### attention ï¿½ la taille de la liste
 		call x.cbD [ip]
 	)
 	else
@@ -1107,7 +1108,7 @@ type Sock=[sockCnx sockInput sockSize sockOutput sockIndex sockCloseAfter sockCa
 
 var http_header="HTTP/1.0 200 OK\13\10Server: MTL HTTP server\13\10Content-Type: text/html\13\10\13\10";;
 
-var http_sep="\13\n\13\n";;	// séparateur entre l'en-tête et le corps de la réponse à une requête
+var http_sep="\13\n\13\n";;	// sï¿½parateur entre l'en-tï¿½te et le corps de la rï¿½ponse ï¿½ une requï¿½te
 var http_content_start="ontent-Length: ";;
 var http_content_start2="ontent-length: ";;
 var http_content_end="\13\n";;
@@ -1381,7 +1382,9 @@ a:hover {
       <input type=\"radio\" name=\"m\" "::"<ENC-WEP>"::" value=\"1\" />
       WEP encryption<br />
       <input type=\"radio\" name=\"m\" "::"<ENC-WPA>"::" value=\"2\" />
-      WPA encryption</td>
+      WPA encryption<br />
+      <input type=\"radio\" name=\"m\" "::"<ENC-WPA2>"::" value=\"5\" />
+      WPA2 encryption</td>
     <td class=\"hint\">Select your network's encryption type.</td>
   </tr>
   <tr>
@@ -1697,6 +1700,7 @@ fun webcrypt i=
 	else if i==IEEE80211_CRYPT_WEP64 then "Wep64 encryption"
 	else if i==IEEE80211_CRYPT_WEP128 then "Wep128 encryption"
 	else if i==IEEE80211_CRYPT_WPA then "WPA-PSK encryption"
+	else if i==IEEE80211_CRYPT_WPA2 then "WPA2-PSK encryption"
 	else "Unkown encryption";;
 
 fun isinscan s l=
@@ -1952,21 +1956,21 @@ var HTTP_CONNECTED=2;;
 
 var lasthttpevent;;
 
-// type Httpreq contenant l'état d'une requête
+// type Httpreq contenant l'ï¿½tat d'une requï¿½te
 type Httpreq=[cnxH inputH outputH indexH cbH typeH stateH startH];;
 
-// callback de lecture sur la socket d'une requête
+// callback de lecture sur la socket d'une requï¿½te
 fun tcpread cnx input httpreq=
 	set httpreq.startH=time;
 	if input==nil ||0==strlen input then	// erreur ou fin
 	(	closetcp cnx;	// on ferme la socket
-		if httpreq.typeH==HTTP_NORMAL then call httpreq.cbH [httpreq strcatlist rev httpreq.inputH nil]	// on retourne ce qui a été reçu
+		if httpreq.typeH==HTTP_NORMAL then call httpreq.cbH [httpreq strcatlist rev httpreq.inputH nil]	// on retourne ce qui a ï¿½tï¿½ reï¿½u
 		else call httpreq.cbH [httpreq nil]
 	)
 	else
 	(
 		set lasthttpevent=time;
-		if httpreq.typeH==HTTP_NORMAL then set httpreq.inputH=input::httpreq.inputH	// on bufferise ce qui a été reçu
+		if httpreq.typeH==HTTP_NORMAL then set httpreq.inputH=input::httpreq.inputH	// on bufferise ce qui a ï¿½tï¿½ reï¿½u
 		else if httpreq.typeH==HTTP_DIRECT then
 		(
 			call httpreq.cbH [httpreq input];
@@ -1989,22 +1993,22 @@ fun tcpread cnx input httpreq=
 		nil
 	);;
 
-// callback d'écriture sur la socket d'une requête
+// callback d'ï¿½criture sur la socket d'une requï¿½te
 fun tcpwrite cnx httpreq=
 	set httpreq.stateH=HTTP_CONNECTED; 
-	if httpreq.outputH!=nil then	// s'il y a des choses à envoyer (notamment la première fois)
-	(	set httpreq.indexH=writetcp cnx httpreq.outputH httpreq.indexH;	// envoyer ce qui peut l'être
+	if httpreq.outputH!=nil then	// s'il y a des choses ï¿½ envoyer (notamment la premiï¿½re fois)
+	(	set httpreq.indexH=writetcp cnx httpreq.outputH httpreq.indexH;	// envoyer ce qui peut l'ï¿½tre
 		if httpreq.indexH==nil then	// si erreur lors de l'envoi
 		(	closetcp cnx;	// on ferme la socket
 			call httpreq.cbH [httpreq nil]	)	// on retourne nil
-		else if httpreq.indexH>=strlen httpreq.outputH then	// sinon si tout a été envoyé
-		(	set httpreq.indexH=nil;	// purger les données d'émission
+		else if httpreq.indexH>=strlen httpreq.outputH then	// sinon si tout a ï¿½tï¿½ envoyï¿½
+		(	set httpreq.indexH=nil;	// purger les donnï¿½es d'ï¿½mission
 			set httpreq.outputH=nil;
 			nil
 		)
 	);;
 
-var http_prefurl="http://";;	// en-tête normal (mais ici facultatif) d'une requête http
+var http_prefurl="http://";;	// en-tï¿½te normal (mais ici facultatif) d'une requï¿½te http
 
 fun isip s i=
 	if i>=strlen s then 1
@@ -2013,7 +2017,7 @@ fun isip s i=
 	else isip s i+1;;
 
 
-// découper une url en [host port path].
+// dï¿½couper une url en [host port path].
 // host est de la forme ip:port
 // path ne commence pas par /
 fun cuturl url =
@@ -2046,19 +2050,19 @@ fun httpsendreq ip x=
 	0;;
 
 
-//##> création d'une requête http
-// paramètres : verb=verbe de la requête url=url de la requête postdata=données supplémentaires (nil si aucune) cb=callback de retour
+//##> crï¿½ation d'une requï¿½te http
+// paramï¿½tres : verb=verbe de la requï¿½te url=url de la requï¿½te postdata=donnï¿½es supplï¿½mentaires (nil si aucune) cb=callback de retour
 fun httprequest verb url postdata cb type=
 	Secho "HTTPREQUEST url =";Secholn url;
-	let cuturl url ->[host port path] in	// décodage de l'url de la requête
+	let cuturl url ->[host port path] in	// dï¿½codage de l'url de la requï¿½te
 	let if confGetProxy then strcatlist "http://"::host::":"::(itoa port)::path::nil else path -> path in
 	let Secholn strcatlist verb::" "::path::" HTTP/1.0\13\nUser-Agent: MTL\13\nPragma: no-cache\13\nHost: "::host::"\13\n"::
 			if postdata==nil then "\13\n"::nil
 			else "Content-length: "::(itoa strlen postdata)::"\13\n\13\n"::postdata::nil
-		-> request in	// création de la chaîne requête
+		-> request in	// crï¿½ation de la chaï¿½ne requï¿½te
 	let if confGetProxy then webip confGetProxyip else host -> host in
 	let if confGetProxy then confGetProxyport else port -> port in
-	let [outputH:request indexH:0 cbH:cb typeH:type stateH:HTTP_SOLVE startH:time] -> httpreq in	// création de la structure requête
+	let [outputH:request indexH:0 cbH:cb typeH:type stateH:HTTP_SOLVE startH:time] -> httpreq in	// crï¿½ation de la structure requï¿½te
 	(
 		Secho "HTTPREQUEST host =";Secholn host;
 		if isip host 0 then httpsendreq host [port httpreq]
@@ -2067,12 +2071,12 @@ fun httprequest verb url postdata cb type=
 			dnsreq host fixarg2 #httpsendreq [port httpreq];
 			nil
 		);
-		httpreq	// on retourne la structure requête pour pouvoir éventuellement l'interrompre en cours de route
+		httpreq	// on retourne la structure requï¿½te pour pouvoir ï¿½ventuellement l'interrompre en cours de route
 	);;
 
-//##> interruption d'une requête en cours
+//##> interruption d'une requï¿½te en cours
 fun httpabort httpreq=
-	closetcp httpreq.cnxH;;	// on ferme la socket de la requête
+	closetcp httpreq.cnxH;;	// on ferme la socket de la requï¿½te
 
 fun httpenable httpreq v=
 	enabletcp httpreq.cnxH v;;
@@ -2082,17 +2086,17 @@ fun httpstate httpreq = httpreq.stateH;;
 fun httpstart httpreq = httpreq.startH;;
 
 
-var http_sep="\13\n\13\n";;	// séparateur entre l'en-tête et le corps de la réponse à une requête
+var http_sep="\13\n\13\n";;	// sï¿½parateur entre l'en-tï¿½te et le corps de la rï¿½ponse ï¿½ une requï¿½te
 
 	
 
-//##> retourne le header d'une réponse à une requête
+//##> retourne le header d'une rï¿½ponse ï¿½ une requï¿½te
 fun httpgetheader res =
 	let strstr res http_sep 0 -> i in
 	if i==nil then res
 	else strsub res 0 i+strlen http_sep;;
 
-//##> retourne le contenu d'une réponse à une requête (sans header)
+//##> retourne le contenu d'une rï¿½ponse ï¿½ une requï¿½te (sans header)
 fun httpgetcontent res =
 	let strstr res http_sep 0 -> i in
 	if i==nil then nil
@@ -2413,6 +2417,7 @@ fun wifiwepkey val=
 fun wificrypttype crypt key=
 	if crypt==1 then if 5==strlen key then IEEE80211_CRYPT_WEP64 else IEEE80211_CRYPT_WEP128
 	else if crypt==2 then IEEE80211_CRYPT_WPA
+	else if crypt==5 then IEEE80211_CRYPT_WPA2
 	else IEEE80211_CRYPT_NONE;;
 
 fun wifiAuth=
@@ -2426,7 +2431,7 @@ fun wifiAuth=
 		(
 			dump key;
 			set wifitry=time;
-			netAuth hd wifiscans Iecholn auth (Iecholn wificrypttype crypt key) key;	//## ajouter les paramètres de crypto
+			netAuth hd wifiscans Iecholn auth (Iecholn wificrypttype crypt key) key;	//## ajouter les paramï¿½tres de crypto
 			1
 		);;
 
@@ -2588,7 +2593,7 @@ fun boot_url url =
 	Secholn strcatlist url::"/bc.jsp?v="::(webip FIRMWARE)::"&m="::(webmac netMac)::"&l="::(webmac confGetLogin)::"&p="::(webmac confGetPwd)::"&h="::(itoa HARDWARE)::nil;;
 
 fun boot_loop=
-	if wifitry!=nil && time-wifitry>BOOT_WIFITIMEOUT && httpboot==nil then	// essayer un autre réseau
+	if wifitry!=nil && time-wifitry>BOOT_WIFITIMEOUT && httpboot==nil then	// essayer un autre rï¿½seau
 	(
 		wifiInit 0;
 		resetudp;

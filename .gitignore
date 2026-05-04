@@ -1,9 +1,25 @@
+# Build artifacts
 bin/
-mtl_c/
 obj/
-doc/
-**/.svn
-*.hex
+*.o
 *.elf
+*.hex
 *.bin
-.gdb_history
+*.map
+*.lst
+*.sym
+*.dis
+*.si
+*.sim
+
+# IDE/OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Temp files
+Nab.zip
+original_sources/
+tmp/
