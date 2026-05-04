@@ -34,7 +34,7 @@ Ce firmware est le **firmware de boot** du Nabaztag (processeur ARM7TDMI). Il g�
 
 ```bash
 make          # compile → bin/Nab.elf → bin/Nab.bin
-php -f sim.php # (optionnel) génère Nabaztag_WPA2.si
+php -f sim.php # (optionnel) génère wpa2.sim
 ```
 
 Le fichier `.sim` peut être uploadé sur le lapin via :

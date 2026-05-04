@@ -4,7 +4,7 @@
  *
  * Usage: php sim.php
  * Prérequis: make (bin/Nab.bin doit exister)
- * Sortie: Nabaztag_WPA2.si
+ * Sortie: wpa2.sim
  */
 
 $firmwarelimit = "-violet-";
@@ -42,6 +42,6 @@ for ($i = 0; $i < $size; $i++)
     $hex .= sprintf("%02x", ord($obf[$i]));
 
 $sim = $firmwarelimit . sprintf("%08x", $size * 2) . $hex . $firmwarelimit;
-file_put_contents("Nabaztag_WPA2.si", $sim);
+file_put_contents("wpa2.simm", $sim);
 
-echo "OK: Nabaztag_WPA2.si généré (" . strlen($sim) . " bytes)\n";
+echo "OK: wpa2.simm généré (" . strlen($sim) . " bytes)\n";

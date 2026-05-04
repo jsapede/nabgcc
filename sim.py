@@ -7,7 +7,7 @@ Usage:
     python3 sim.py chemin.bin   # utilise un binaire spécifique
 
 Prérequis: make (bin/Nab.bin doit exister)
-Sortie: Nabaztag_WPA2.si
+Sortie: wpa2.sim
 """
 
 import sys, os
@@ -51,7 +51,7 @@ def make_sim(input_path: str, output_path: str):
 
 if __name__ == "__main__":
     input_path = sys.argv[1] if len(sys.argv) > 1 else "bin/Nab.bin"
-    output_path = "Nabaztag_WPA2.si"
+    output_path = "wpa2.sim"
 
     if not os.path.exists(input_path):
         print(f"❌ {input_path} introuvable. Lancez 'make' d'abord.")
