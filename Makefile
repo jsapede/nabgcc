@@ -92,4 +92,7 @@ clean:
 program: bin/$(TARGET).elf
 	$(PROGRAM) $< < gdb_load
 
-.PHONY: clean program elf hex bin
+.PHONY: clean program elf hex bin sim
+
+sim: bin
+	python3 sim.py
