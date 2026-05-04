@@ -18,8 +18,17 @@ Thumbs.db
 *.swp
 *.swo
 *~
+NabzGCC.project
+*.workspace
+
+# Debug
+gdb_load
+
+# OpenOCD binary
+openocd/openocd
 
 # Temp files
 Nab.zip
 original_sources/
 tmp/
+node_modules/

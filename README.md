@@ -23,40 +23,53 @@ Ce firmware est le **firmware de boot** du Nabaztag (processeur ARM7TDMI). Il g�
 | WPA | 3 | TKIP/RC4 |
 | **WPA2** | **5** | **AES-CCMP** |
 
-## Dépendances
-
-- `arm-none-eabi-gcc` (compilateur croisé ARM)
-- `arm-none-eabi-binutils`
-- PHP (pour la génération du fichier .sim)
-- OpenOCD (pour le flash via JTAG, optionnel)
-
 ## Compilation
 
+**Prérequis :** `arm-none-eabi-gcc` (compilateur croisé ARM), `arm-none-eabi-binutils`, Python 3.
+
 ```bash
-make          # compile → bin/Nab.elf → bin/Nab.bin
-php -f sim.php # (optionnel) génère wpa2.sim
+# Étape 1 : Compiler le firmware
+make                    # produit bin/Nab.elf + bin/Nab.bin
+
+# Étape 2 : Générer le fichier flashable
+python3 sim.py          # produit wpa2.sim (firmware à uploader)
+
+# Ou en une seule commande :
+make sim                # compile + génère wpa2.sim
 ```
 
-Le fichier `.sim` peut être uploadé sur le lapin via :
-1. **HTTP** : bouton maintenu au démarrage → page web → upload .sim
+Le fichier `wpa2.sim` peut être uploadé sur le lapin via :
+1. **HTTP** : bouton maintenu au démarrage → page web → upload `.sim`
 2. **JTAG** : `openocd -f openocd/nabaztagv2.cfg`
+
+> ⚠️ Taille max du `.sim` : **256 KB**. Le firmware actuel pèse **~225 KB**.
+
+## Dépendances
+
+- `arm-none-eabi-gcc` + `arm-none-eabi-binutils` — compilateur croisé ARM
+- `python3` — génération du `.sim` (ou `php` pour la version historique `sim.php`)
+- `openocd` — flash via JTAG (optionnel)
 
 ## Structure du projet
 
 ```
-src/net/          — WiFi, EAPOL, AES, hash, RC4
-src/usb/          — Driver RT2501 USB
+src/net/          — WiFi (IEEE 802.11), EAPOL, AES, SHA, RC4
+src/usb/          — Driver chipset WiFi RT2501 (USB)
 src/hal/          — Drivers matériels (UART, I2C, SPI, LED, audio, moteur)
-src/vm/           — Machine virtuelle MTL (bytecode interpreter)
-mtl/              — Sources MTL du bytecode embarqué (page web boot)
+src/vm/           — Machine virtuelle MTL (interpréteur de bytecode)
+src/main.c        — Point d'entrée du firmware
+src/bc.c          — Bytecode embarqué (page web de configuration boot)
+mtl/              — Sources MTL du bytecode boot (10 versions)
 inc/              — Headers
 sys/              — Startup ARM, linker script
 testvm/           — VM de test
-openocd/          — Configuration JTAG
+openocd/          — Configuration et scripts JTAG
 ```
+
+## Historique
+
+Ce repo est un fork de [RedoXyde/nabgcc](https://github.com/RedoXyde/nabgcc), lui-même issu du travail de [andreax79/ServerlessNabaztag](https://github.com/andreax79/ServerlessNabaztag). Les modifications WPA2 sont dans la branche `master` (tag `v0.1.0-wpa2`).
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE). Basé sur le travail de :
-- [andreax79/ServerlessNabaztag](https://github.com/andreax79/ServerlessNabaztag)
-- [RedoXyde/nabgcc](https://github.com/RedoXyde/nabgcc)
+MIT — voir [LICENSE](LICENSE).
